@@ -1,8 +1,12 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Grace College Chatbot
+
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app) that implements an AI-powered chatbot for Grace College using Google's Gemini API.
 
 ## Getting Started
 
-First, run the development server:
+First, set up your Gemini API key by following the instructions in [SETUP_API_KEY.md](SETUP_API_KEY.md).
+
+Then, run the development server:
 
 ```bash
 npm run dev
