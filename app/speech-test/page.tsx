@@ -17,7 +17,6 @@ export default function SpeechTest() {
   } = useSpeechRecognition({
     clearTranscriptOnListen: false,
   });
-
   useEffect(() => {
     setMounted(true);
     
@@ -26,6 +25,16 @@ export default function SpeechTest() {
       setSupportInfo('❌ Your browser does not support speech recognition. Try Chrome, Edge, or Safari.');
     } else {
       setSupportInfo('✅ Your browser supports speech recognition!');
+      
+      // Add browser details
+      addTestResult(`Browser: ${navigator.userAgent}`);
+      addTestResult(`Protocol: ${window.location.protocol}`);
+      addTestResult(`Secure Context: ${window.isSecureContext ? 'Yes' : 'No'}`);
+      
+      // Check for SpeechRecognition API
+      const hasSpeechRecognition = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      addTestResult(`SpeechRecognition API: ${hasSpeechRecognition ? 'Available' : 'Not Available'}`);
+      
       // Check microphone
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ audio: true })

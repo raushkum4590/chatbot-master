@@ -26,16 +26,48 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
   } = useSpeechRecognition({
     clearTranscriptOnListen: true,
     commands: []
-  });
-  // Show warning message if browser doesn't support speech recognition
+  });  // Show warning message if browser doesn't support speech recognition
   useEffect(() => {
-    if (!browserSupportsSpeechRecognition) {
-      console.warn("This browser doesn't support speech recognition.");
+    if (mounted) {
+      if (!browserSupportsSpeechRecognition) {
+        console.warn("This browser doesn't support speech recognition.");
+        
+        // Try to detect why it might not be supported
+        if (typeof window !== 'undefined') {
+          const hasSpeechRecognition = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+          console.log("SpeechRecognition API check:", hasSpeechRecognition);
+          
+          if (!window.isSecureContext) {
+            console.error("Speech recognition requires a secure context (HTTPS)");
+          }
+        }
+      } else {
+        console.log("Speech recognition is supported by this browser");
+      }
+      
+      // Log browser details for debugging
+      if (typeof window !== 'undefined') {
+        console.log("Browser info:", {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          vendor: navigator.vendor,
+          language: navigator.language,
+          secure: window.isSecureContext,
+          protocol: window.location.protocol,
+          hasSpeechRecognition: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+          hasWebkitSpeechRecognition: !!(window.webkitSpeechRecognition)
+        });
+      }
     }
-  }, [browserSupportsSpeechRecognition]);
+  }, [browserSupportsSpeechRecognition, mounted]);
   // Set mounted state once component is mounted (client-side only)
   useEffect(() => {
     setMounted(true);
+    
+    // Check if we're in a secure context (required for speech recognition)
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      console.error("Speech recognition requires a secure context (HTTPS)");
+    }
     
     // Check microphone permission on mount
     if (mounted && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -115,24 +147,46 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
   };  const toggleRecording = () => {
     if (!mounted) return; // Only run on client side
     
+    // Check for secure context
+    if (typeof window !== 'undefined' && window.isSecureContext === false) {
+      console.error("Speech recognition requires a secure connection (HTTPS)");
+      alert("Speech recognition requires a secure connection (HTTPS). Please switch to a secure connection.");
+      return;
+    }
+    
     if (!browserSupportsSpeechRecognition) {
-      alert("Your browser doesn't support speech recognition. Please try a different browser.");
+      console.error("Browser doesn't support speech recognition");
+      alert("Your browser doesn't support speech recognition. Please try Chrome, Edge, or Safari.");
+      
+      // Open the diagnostics page in a new tab
+      window.open("/speech-diagnostics", "_blank");
+      return;
+    }
+    
+    if (!isMicrophoneAvailable) {
+      console.error("Microphone is not available");
+      alert("Microphone access is required for speech recognition. Please allow microphone access in your browser settings.");
       return;
     }
 
-    if (listening) {
-      console.log("Stopping speech recognition");
-      SpeechRecognition.stopListening();
-    } else {
-      console.log("Starting speech recognition");
-      resetTranscript();
-      SpeechRecognition.startListening({ 
-        continuous: true,
-        language: 'en-US',
-        interimResults: true
-      });
+    try {
+      if (listening) {
+        console.log("Stopping speech recognition");
+        SpeechRecognition.stopListening();
+      } else {
+        console.log("Starting speech recognition");
+        resetTranscript();
+        SpeechRecognition.startListening({ 
+          continuous: true,
+          language: 'en-US',
+          interimResults: true
+        });
+      }
+      setIsRecording(!isRecording);
+    } catch (err) {
+      console.error("Error toggling speech recognition:", err);
+      alert(`Speech recognition failed: ${err.message}. Please try again or use text input.`);
     }
-    setIsRecording(!isRecording);
   };
 
   const handleFileSelect = () => {

@@ -33,23 +33,34 @@ const ChatInputGemini: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) 
   useEffect(() => {
     setMounted(true);
   }, []);
-
   // Update message with transcript when speech is detected
   useEffect(() => {
     if (!mounted) return;
     
     if (transcript) {
+      console.log('Received transcript:', transcript);
+      
       // Only set the message if it's different from the current transcript
       setMessage(prev => {
         // If the transcript is already included in the message, don't add it again
         if (prev.includes(transcript)) {
+          console.log('Transcript already in message, not adding again');
           return prev;
         }
-        return prev + (prev ? ' ' : '') + transcript;
+        
+        // Add proper spacing
+        const newMessage = prev + (prev && !prev.endsWith(' ') ? ' ' : '') + transcript;
+        console.log('Updated message:', newMessage);
+        return newMessage;
       });
       
-      // Reset the transcript to prepare for next recording
-      resetTranscript();
+      // Reset the transcript after a delay to prepare for next recording
+      // This helps with continuous recognition sessions
+      const timeoutId = setTimeout(() => {
+        resetTranscript();
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [transcript, mounted, resetTranscript]);
 
@@ -176,10 +187,15 @@ const ChatInputGemini: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) 
           <div className="absolute top-0 left-0 right-0 py-1 px-2 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600 dark:text-yellow-200 text-xs flex items-center justify-center">
             <span className="mr-1">⏳</span> Processing with Gemini AI...
           </div>
-        )}
-        {!isRecording && !isProcessing && isSupported && (
+        )}        {!isRecording && !isProcessing && isSupported && (
           <div className="absolute top-0 left-0 right-0 py-1 px-2 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-200 text-xs flex items-center justify-center opacity-80">
             Click the microphone icon to use Gemini voice input
+          </div>
+        )}
+        
+        {error && (
+          <div className="absolute top-0 left-0 right-0 py-1 px-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-200 text-xs flex items-center justify-center">
+            <span className="mr-1">⚠️</span> {error}
           </div>
         )}
         

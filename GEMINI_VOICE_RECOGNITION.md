@@ -65,3 +65,27 @@ import ChatInputGemini from "./ChatInputGemini";
 - Ensure you have a valid Gemini API key
 - Verify that your browser supports MediaRecorder API
 - Check that microphone permissions are granted
+
+## Vercel Deployment
+
+When deploying to Vercel, speech recognition requires additional configuration:
+
+1. **Environment Variables**:
+   - Add `GEMINI_API_KEY` to your Vercel project's environment variables
+   - Make sure to use production API keys, not development ones
+
+2. **Headers Configuration**:
+   - The project includes a `vercel.json` file with the necessary CORS headers
+   - These headers are required for speech recognition to work in a browser
+
+3. **Browser Compatibility**:
+   - Speech recognition on Vercel only works in compatible browsers (Chrome, Edge, Safari)
+   - Must be accessed via HTTPS (Vercel provides this by default)
+   - Users must grant microphone permissions
+
+4. **Troubleshooting Vercel Deployment**:
+   - If speech recognition fails on Vercel but works locally, check browser console for CORS errors
+   - Verify that your API keys are properly set in Vercel's environment settings
+   - Run a diagnostic test by visiting `/speech-test` on your deployed site
+   - Make sure you're using a secure (HTTPS) connection
+   - Try different browsers (Chrome or Edge recommended)
