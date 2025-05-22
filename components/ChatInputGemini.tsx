@@ -3,82 +3,55 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Send, Smile, Paperclip, Mic, Image, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { useGeminiSpeech } from "@/hooks/useGeminiSpeech";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   disabled: boolean;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
+const ChatInputGemini: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
   const [message, setMessage] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);  // Speech recognition setup
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Use the Gemini speech hook
   const {
+    isRecording,
+    isProcessing,
+    isSupported, 
     transcript,
-    listening,
-    resetTranscript,
-    browserSupportsSpeechRecognition,
-    isMicrophoneAvailable
-  } = useSpeechRecognition({
-    clearTranscriptOnListen: true,
-    commands: []
-  });
-  // Show warning message if browser doesn't support speech recognition
-  useEffect(() => {
-    if (!browserSupportsSpeechRecognition) {
-      console.warn("This browser doesn't support speech recognition.");
-    }
-  }, [browserSupportsSpeechRecognition]);
-  // Set mounted state once component is mounted (client-side only)
+    error,
+    startRecording,
+    stopRecording,
+    resetTranscript
+  } = useGeminiSpeech();
+
+  // Use effect to track if component is mounted (client-side only)
   useEffect(() => {
     setMounted(true);
-    
-    // Check microphone permission on mount
-    if (mounted && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(() => {
-          console.log("Microphone permission granted");
-        })
-        .catch(err => {
-          console.error("Microphone permission denied:", err);
-          alert("Please allow microphone access for speech recognition to work.");
-        });
-    }
-  }, [mounted]);// Update message with transcript when speech is detected
+  }, []);
+
+  // Update message with transcript when speech is detected
   useEffect(() => {
-    if (!mounted) return; // Only run on client side
+    if (!mounted) return;
     
     if (transcript) {
-      console.log("Transcript received:", transcript);
-      
-      // Handle transcript properly
+      // Only set the message if it's different from the current transcript
       setMessage(prev => {
-        // Don't add duplicate text if the transcript is already in the message
+        // If the transcript is already included in the message, don't add it again
         if (prev.includes(transcript)) {
           return prev;
         }
-        
-        // Add the transcript with proper spacing
-        return prev + (prev.length > 0 && !prev.endsWith(' ') ? ' ' : '') + transcript;
+        return prev + (prev ? ' ' : '') + transcript;
       });
       
-      // Don't reset transcript immediately to prevent losing parts of longer statements
-      if (!listening) {
-        resetTranscript();
-      }
+      // Reset the transcript to prepare for next recording
+      resetTranscript();
     }
-  }, [transcript, listening, mounted, resetTranscript]);
-
-  // Sync isRecording with listening state
-  useEffect(() => {
-    if (mounted) {
-      setIsRecording(listening);
-    }
-  }, [listening, mounted]);
+  }, [transcript, mounted, resetTranscript]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -86,18 +59,24 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
-  }, [message]);  const handleSubmit = (e: React.FormEvent) => {
+  }, [message]);
+
+  // Show error if there's one
+  useEffect(() => {
+    if (error) {
+      console.error("Gemini speech error:", error);
+    }
+  }, [error]);
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     // Stop speech recognition if active when submitting
-    if (mounted && listening) {
-      console.log("Stopping speech recognition during form submission");
-      SpeechRecognition.stopListening();
-      setIsRecording(false);
+    if (mounted && isRecording) {
+      stopRecording();
     }
     
     if (message.trim() && !disabled) {
-      console.log("Sending message:", message.trim());
       onSendMessage(message.trim());
       setMessage("");
       // Reset height after submission
@@ -112,27 +91,21 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
       e.preventDefault();
       handleSubmit(e);
     }
-  };  const toggleRecording = () => {
-    if (!mounted) return; // Only run on client side
+  };
+
+  const toggleRecording = () => {
+    if (!mounted) return;
     
-    if (!browserSupportsSpeechRecognition) {
-      alert("Your browser doesn't support speech recognition. Please try a different browser.");
+    if (!isSupported) {
+      alert("Audio recording is not supported in your browser. Please try a different browser.");
       return;
     }
 
-    if (listening) {
-      console.log("Stopping speech recognition");
-      SpeechRecognition.stopListening();
+    if (isRecording) {
+      stopRecording();
     } else {
-      console.log("Starting speech recognition");
-      resetTranscript();
-      SpeechRecognition.startListening({ 
-        continuous: true,
-        language: 'en-US',
-        interimResults: true
-      });
+      startRecording();
     }
-    setIsRecording(!isRecording);
   };
 
   const handleFileSelect = () => {
@@ -152,7 +125,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
     "🤩", "🥳", "🎓", "📚", "🏫", "❓", 
     "🎯", "👨‍🎓", "👩‍🎓", "💻", "📝", "🧠"
   ];
-  // Don't render the full component if not mounted yet (to avoid hydration issues)
+
+  // If not mounted yet, don't render anything to avoid hydration issues
   if (!mounted) {
     return (
       <div className="sticky bottom-0 p-3 flex items-end gap-2 h-16 bg-gray-50 dark:bg-gray-800">
@@ -164,7 +138,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="sticky bottom-0 p-3 flex items-end gap-2"
+      className="sticky bottom-0 p-3 flex items-end gap-2 relative"
       aria-label="Chat input form"
     >
       {/* Emoji picker */}
@@ -191,13 +165,24 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
           </motion.div>
         )}
       </AnimatePresence>
-
+      
       <div className="relative flex-1 flex items-end bg-white dark:bg-gray-700 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-600 overflow-hidden">
-        {listening && (
+        {isRecording && (
           <div className="absolute top-0 left-0 right-0 py-1 px-2 bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-200 text-xs flex items-center justify-center">
-            <span className="animate-pulse mr-1">●</span> Listening... Speak now
+            <span className="animate-pulse mr-1">●</span> Recording... Speak now
           </div>
         )}
+        {isProcessing && (
+          <div className="absolute top-0 left-0 right-0 py-1 px-2 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-600 dark:text-yellow-200 text-xs flex items-center justify-center">
+            <span className="mr-1">⏳</span> Processing with Gemini AI...
+          </div>
+        )}
+        {!isRecording && !isProcessing && isSupported && (
+          <div className="absolute top-0 left-0 right-0 py-1 px-2 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-200 text-xs flex items-center justify-center opacity-80">
+            Click the microphone icon to use Gemini voice input
+          </div>
+        )}
+        
         <div className="flex items-center p-2 self-end">
           <Button
             type="button"
@@ -211,7 +196,6 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
             <Smile size={18} />
           </Button>
           <div className="relative">
-            
             <input 
               type="file" 
               ref={fileInputRef} 
@@ -223,18 +207,38 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
               }} 
             />
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className={`h-8 w-8 rounded-full ${listening ? 'text-red-500 animate-pulse' : 'text-gray-500 hover:text-blue-500'}`}
-            aria-label={listening ? "Stop recording" : "Start voice recording"}
-            onClick={toggleRecording}
-            disabled={disabled}
-          >
-            <Mic size={18} />
-            {listening && <span className="sr-only">Recording in progress</span>}
-          </Button>
+          
+          {isSupported ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 rounded-full ${
+                isRecording || isProcessing 
+                  ? 'bg-red-100 text-red-500 animate-pulse' 
+                  : 'text-gray-500 hover:text-blue-500'
+              }`}
+              aria-label={isRecording ? "Stop recording" : "Start voice recording"}
+              onClick={toggleRecording}
+              disabled={disabled || isProcessing}
+            >
+              <Mic size={18} />
+              {isRecording && <span className="sr-only">Recording in progress</span>}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full text-gray-400"
+              aria-label="Voice input not supported"
+              disabled={true}
+              title="Voice input is not supported in your browser"
+            >
+              <Mic size={18} />
+              <span className="sr-only">Voice input not supported</span>
+            </Button>
+          )}
         </div>
         
         <textarea
@@ -248,20 +252,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
           disabled={disabled}
           aria-label="Message input"
         />
-          <div className="flex items-center p-2 self-end">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="text-gray-500 hover:text-blue-500 h-8 w-8 rounded-full"
-            aria-label="Test Speech"
-            onClick={() => setMessage(prev => 
-              prev + (prev ? ' ' : '') + "What is the average GPA of admitted students?"
-            )}
-            title="Insert test question about GPA"
-          >
-            <span className="text-xs">GPA</span>
-          </Button>
+        
+        <div className="flex items-center p-2 self-end">
+          
         </div>
       </div>
       
@@ -272,20 +265,19 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, disabled }) => {
       >
         <Button
           type="submit"
-          disabled={!message.trim() && !listening || disabled}
+          disabled={!message.trim() && !isRecording || disabled}
           className={`rounded-full w-12 h-12 p-0 flex items-center justify-center shadow-md ${
-            listening 
+            isRecording 
               ? 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700'
               : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
           }`}
-          aria-label={listening ? "Send recording" : "Send message"}
+          aria-label={isRecording ? "Stop recording and send" : "Send message"}
         >
           <Send className="w-5 h-5" />
-          <span className="sr-only">{listening ? "Send recording" : "Send"}</span>
+          <span className="sr-only">{isRecording ? "Send recording" : "Send"}</span>
         </Button>
       </motion.div>
-    </form>
-  );
+    </form>  );
 };
 
-export default ChatInput;
+export default ChatInputGemini;

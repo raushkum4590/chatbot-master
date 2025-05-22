@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Speech Recognition Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .result-box {
+      min-height: 100px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #4a86e8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #3a76d8;
+    }
+    .recording {
+      background-color: #e84a4a;
+    }
+    .recording:hover {
+      background-color: #d83a3a;
+    }
+    .status {
+      font-style: italic;
+      color: #666;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Speech Recognition Test</h1>
+    <p>This page tests the Web Speech API to ensure your browser supports speech recognition.</p>
+    
+    <div>
+      <button id="toggleButton">Start Listening</button>
+      <p id="status" class="status">Ready to listen. Click the button above to start.</p>
+    </div>
+    
+    <div>
+      <h3>Transcript:</h3>
+      <div id="result" class="result-box"></div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggleButton = document.getElementById('toggleButton');
+      const result = document.getElementById('result');
+      const status = document.getElementById('status');
+      
+      // Check for SpeechRecognition support
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        status.textContent = 'Speech recognition is not supported in this browser. Try Chrome, Edge, or Safari.';
+        status.classList.add('error');
+        toggleButton.disabled = true;
+        return;
+      }
+      
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      
+      let isListening = false;
+      
+      toggleButton.addEventListener('click', () => {
+        if (isListening) {
+          recognition.stop();
+          toggleButton.textContent = 'Start Listening';
+          toggleButton.classList.remove('recording');
+          status.textContent = 'Stopped listening.';
+        } else {
+          // Request microphone permission
+          navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(() => {
+              recognition.start();
+              toggleButton.textContent = 'Stop Listening';
+              toggleButton.classList.add('recording');
+              status.textContent = 'Listening... Speak now!';
+            })
+            .catch(err => {
+              status.textContent = 'Microphone access denied. Please allow microphone access.';
+              status.classList.add('error');
+              console.error('Microphone error:', err);
+            });
+        }
+      });
+      
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join('');
+          
+        result.textContent = transcript;
+        console.log('Transcript:', transcript);
+      };
+      
+      recognition.onstart = () => {
+        isListening = true;
+        status.textContent = 'Listening... Speak now!';
+        console.log('Speech recognition started');
+      };
+      
+      recognition.onend = () => {
+        isListening = false;
+        status.textContent = 'Speech recognition ended.';
+        console.log('Speech recognition ended');
+      };
+      
+      recognition.onerror = (event) => {
+        status.textContent = `Error: ${event.error}`;
+        status.classList.add('error');
+        console.error('Speech recognition error:', event.error);
+        
+        if (event.error === 'not-allowed') {
+          status.textContent = 'Microphone access denied. Please allow microphone access.';
+        }
+      };
+    });
+  </script>
+</body>
+</html>

@@ -249,10 +249,7 @@ const Chatbot: React.FC = () => {
                 </motion.div>
               )}
             </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Input & suggestions with improved styling */}
+          )}        </AnimatePresence>        {/* Input & suggestions with improved styling */}
         <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/50 backdrop-blur-sm">
           <ChatInput onSendMessage={handleSendMessage} disabled={loading} />
           <SuggestedQuestions onSelectQuestion={handleSendMessage} />
