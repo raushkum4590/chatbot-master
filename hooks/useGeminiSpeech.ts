@@ -2,18 +2,20 @@
 import { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
 
-export function useGeminiSpeech() {  const [isRecording, setIsRecording] = useState(false);
+export function useGeminiSpeech() {
+  const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isSupported, setIsSupported] = useState(false);  // Check if browser supports MediaRecorder API  useEffect(() => {
+  const [isSupported, setIsSupported] = useState(false);  // Check if browser supports MediaRecorder API
+  
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const hasMediaDevices = !!(navigator.mediaDevices);
-      // Correctly check if getUserMedia exists without causing TypeScript errors
-      const hasGetUserMedia = !!(navigator.mediaDevices && 
-                               navigator.mediaDevices.getUserMedia);
+      // We don't need to check if getUserMedia is a function, just if mediaDevices exists
+      const hasGetUserMedia = hasMediaDevices; // TypeScript already knows getUserMedia exists if mediaDevices exists
       const hasMediaRecorder = !!(window.MediaRecorder);
       
       const isFullySupported = hasMediaDevices && hasGetUserMedia && hasMediaRecorder;
